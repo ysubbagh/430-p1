@@ -37,21 +37,117 @@ int interactiveShell() {
     }else if(equal(line, "")){ //empty line
       continue;
     }
+    /*
+    //handle piping 
+    char *pipetoken;
+    char *commands[10]; //25 is max tokeans allowed, increase for more (if needed)
+    int numCommands = 0;
+
+    pipetoken = strtok(line, "|");
+    while(pipetoken != NULL){
+      commands[numCommands++] = pipetoken;
+      pipetoken = strtok(NULL, "|");
+    }
+
+    //start executing commands
+    for(int i = 0; i < numCommands; i++){
+      char* section = commands[i];
+      printf("subsection: %s\n", section);
+
+      int pipefd[2];
+      if(i < numCommands - 1){ //create pipes for sections but last
+        if(pipe(pipefd) == -1){
+          printf("Error: Could not pipe.\n");
+        }
+
+      }
 
 
-    processLine(line);
+
+
+      processLine(section);
+    }
+    */
+
+    int input_fd = STDIN_FILENO;
+    int output_fd = STDOUT_FILENO;
+
+    // Check for input redirection (<)
+    char *inputFile = NULL;
+
+    if (strstr(line, "<")) {
+        char *tokens[25];
+        int numTokens = 0;
+        char *token = strtok(line, " ");
+        while (token != NULL) {
+            tokens[numTokens++] = token;
+            token = strtok(NULL, " ");
+        }
+
+        for (int j = 0; j < numTokens; j++) {
+            if (strcmp(tokens[j], "<") == 0) {
+                if (j + 1 < numTokens) {
+                    inputFile = tokens[j + 1];
+                    tokens[j] = NULL;
+                    break;
+                }
+            }
+        }
+
+        // Open the input file and set it as the input
+        if (inputFile != NULL) {
+            input_fd = open(inputFile, O_RDONLY);
+            if (input_fd < 0) {
+                //perror("open");
+                //exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    // Check for output redirection (>)
+    char *outputFile = NULL;
+    if (strstr(line, ">")) {
+        char *tokens[25];
+        int numTokens = 0;
+        char *token = strtok(line, " ");
+        while (token != NULL) {
+            tokens[numTokens++] = token;
+            token = strtok(NULL, " ");
+        }
+
+        for (int j = 0; j < numTokens; j++) {
+            if (strcmp(tokens[j], ">") == 0) {
+                if (j + 1 < numTokens) {
+                    outputFile = tokens[j + 1];
+                    tokens[j] = NULL;
+                    break;
+                }
+            }
+        }
+
+        // Open the output file and set it as the output
+        if (outputFile != NULL) {
+            output_fd = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+            if (output_fd < 0) {
+                //perror("open");
+                //exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    processLine(line, input_fd, output_fd);
+
+    //handle history feature
     if(lastcall != NULL){
       free(lastcall);
     }
     lastcall = line;
-
   }
-
   free(line);
   return 0;
 }
 
-void processLine(char *line){
+void processLine(char *line, int input_fd, int output_fd){
   char *token;
   char *args[25]; //25 is max tokeans allowed, increase for more (if needed)
   int argsize = 0;
@@ -63,6 +159,29 @@ void processLine(char *line){
     token = strtok(NULL, " ");
   }
   args[argsize] = NULL;
+
+
+
+  //handle file directing
+  //input
+  if(strstr(line, "<")){
+    if(input_fd != STDIN_FILENO){
+      dup2(input_fd, STDIN_FILENO);
+      close(input_fd);
+    }
+
+  }
+  //output
+  if(strstr(line, "<")){
+    if(output_fd != STDOUT_FILENO){
+      dup2(output_fd, STDOUT_FILENO);
+      close(output_fd);
+    }
+
+  }
+
+
+
 
   //fork process
   pid_t pid = fork();
@@ -119,7 +238,9 @@ void repeatcall(){
     printf("Error: No commands in history.\n");
     return;
   }
-  processLine(lastcall);
+  int input_fd = STDIN_FILENO;
+  int output_fd = STDOUT_FILENO;
+  processLine(lastcall, input_fd, output_fd); //cant handle file direct with the repeat function
 }
 
 int runTests() {

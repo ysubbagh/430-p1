@@ -9,6 +9,8 @@
 #include <string.h>  // strcmp
 #include <unistd.h>  // execvp
 #include <sys/wait.h> //wait
+#include <sys/stat.h> //open
+#include <fcntl.h> //open
 
 #define MAXLINE 80
 #define PROMPT "osh> "
@@ -29,7 +31,7 @@ int main();
 void printart();
 void repeatcall();
 void invalidcall();
-void processLine(char *line);
+void processLine(char *line, int input_fd, int output_fd);
 void pipedCall(char **parsed, char **parseargs);
 
 #endif
