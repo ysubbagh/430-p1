@@ -34,7 +34,7 @@ void invalidcall();
 void processLine(char *line);
 void pipedCall(char **parsed, char **parseargs);
 bool checkForAmp(char **args, int argSize);
-bool checkForIO(char **args, int argSize);
+int checkForIO(char **args, int argSize, char **inFile, char **outFile);
 
 
 #endif

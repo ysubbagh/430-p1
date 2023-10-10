@@ -139,11 +139,15 @@ int interactiveShell() {
 
     processLine(line);
 
+    /*
     //handle history feature
     if(lastcall != NULL){
       free(lastcall);
     }
     lastcall = line;
+    */
+
+    //printf("loop\n");
   }
   free(line);
   return 0;
@@ -165,7 +169,6 @@ void processLine(char *line){
   //check for & and ;
   bool runParent = checkForAmp(args, argsize);
 
-
   //fork process
   pid_t pid = fork();
 
@@ -174,10 +177,35 @@ void processLine(char *line){
     exit(-1);
   }else if(pid > 0){ //parent branch
     if(!runParent){ //only wait if there was no apmpersands
+      //printf("parent wait\n");
       wait(NULL);
     }
   }else{  //child branch
+
+    //setup file stuff
+    char *inFile, *outFile;
+    int input, output;
+    int redirect = checkForIO(args, argsize, &inFile, &outFile);
+    if(redirect > -1){ //redirect found
+      doRedirection(redirect, inFile, outFile, input, output);
+    }
+
+    //execute
     execute(args, argsize);
+
+    //clsoe file stuff
+    if(redirect > -1){
+      if(redirect == 0){
+        close(input);
+      }else if(redirect == 1){
+        close(output);
+      }else{
+        printf("Error: Cannot close file.\n");
+        exit(-1);
+      }
+      fflush(stdin);
+    }
+
   }
 
 }
@@ -186,25 +214,44 @@ void processLine(char *line){
 void execute(char **args, int argsSize) { 
   execvp(args[0], args);
 
-
 }
 
 bool checkForAmp(char **args, int argSize){
-  int i = 0;
-  while(true){
+  for(int i = 0; i <= argSize; i++){
     if(args[i] == NULL){
       break;
-    }else if(equal(args[i], "&") == 0){
+    }else if(equal(args[i], "&")){
       return true; 
     }
-    continue;
   }
-  return false; //base case (either semicolon found, or no semicolor and no ampersands)
+  return false; //base case (either semicolon found, or no semicolon and no ampersands)
 }
 
-bool checkForIO(char **args, int argSize){
+int checkForIO(char **args, int argSize, char **inFile, char **outFile){
+  for(int i = 0; i <= argSize; i++){
+    if(args[i] == NULL){
+      break;
+    }else if(equal(args[i], "<")){ //input redirect found
+      *inFile = args[i + 1];
+      return 0;
+    }else if(equal(args[i], ">")){ //output redirect found
+      *outFile = args[i + 1];
+      return 1;
+    }
+  }
+  return -1; //base case (no I/O redirect found)
+}
 
-  return false; //base case (no I/O redirect found)
+void doRedirection(int type, char *inFile, char *outFile, int *input, int *output){
+  if(type == 0){ //input redirection
+    *input = open(inFile, O_RDONLY);
+    dup2(*input, STDIN_FILENO);
+  }else if(type == 1){ //output redirection
+    *output = open(outFile, O_RDONLY);
+    dup2(*output, STDIN_FILENO);
+  }else{ //base case, something wrong
+    printf("Error: Redirection issue.\n");
+  }
 }
 
 void pipedCall(char **parsed, char **parseargs){
@@ -217,7 +264,6 @@ void pipedCall(char **parsed, char **parseargs){
   }
 
 }
-
 
 //print the ascii ski art
 void printart(){
