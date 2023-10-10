@@ -176,19 +176,34 @@ void processLine(char *line){
     printf("Error: Could not fork.\n");
     exit(-1);
   }else if(pid > 0){ //parent branch
+
+    printf("enter parent\n");
+
     if(!runParent){ //only wait if there was no apmpersands
       //printf("parent wait\n");
       wait(NULL);
     }
   }else{  //child branch
 
+    printf("enter child\n");
+
     //setup file stuff
     char *inFile, *outFile;
-    int input, output;
+
+    //printf("og file; %s\n", outFile);
+
+    int input = STDIN_FILENO;
+    int output = STDOUT_FILENO;
     int redirect = checkForIO(args, argsize, &inFile, &outFile);
+
+    printf("redirect val: %d\n", redirect);
+
     if(redirect > -1){ //redirect found
-      doRedirection(redirect, inFile, outFile, input, output);
+      doRedirection(redirect, inFile, outFile, &input, &output);
+      printf("directional\n");
     }
+
+    printf("exec\n");
 
     //execute
     execute(args, argsize);
@@ -205,7 +220,8 @@ void processLine(char *line){
       }
       fflush(stdin);
     }
-
+    free(input);
+    free(output);
   }
 
 }
@@ -228,14 +244,18 @@ bool checkForAmp(char **args, int argSize){
 }
 
 int checkForIO(char **args, int argSize, char **inFile, char **outFile){
+  printf("og file: %s\n", outFile);
+
   for(int i = 0; i <= argSize; i++){
+
     if(args[i] == NULL){
       break;
     }else if(equal(args[i], "<")){ //input redirect found
       *inFile = args[i + 1];
       return 0;
     }else if(equal(args[i], ">")){ //output redirect found
-      *outFile = args[i + 1];
+      *outFile = args[i+1];
+      printf("\nfile: %s\n", outFile);
       return 1;
     }
   }
@@ -247,8 +267,15 @@ void doRedirection(int type, char *inFile, char *outFile, int *input, int *outpu
     *input = open(inFile, O_RDONLY);
     dup2(*input, STDIN_FILENO);
   }else if(type == 1){ //output redirection
-    *output = open(outFile, O_RDONLY);
-    dup2(*output, STDIN_FILENO);
+
+    printf("output enter\n");
+
+    *output = open(outFile, O_WRONLY | O_CREAT | O_TRUNC | 0666);
+    if(*output == -1){
+      printf("could not open file\n");
+    }
+
+    dup2(*output, STDOUT_FILENO);
   }else{ //base case, something wrong
     printf("Error: Redirection issue.\n");
   }
@@ -287,8 +314,8 @@ void repeatcall(){
     printf("Error: No commands in history.\n");
     return;
   }
-  int input_fd = STDIN_FILENO;
-  int output_fd = STDOUT_FILENO;
+  //int input_fd = STDIN_FILENO;
+  //int output_fd = STDOUT_FILENO;
   processLine(lastcall); //cant handle file direct with the repeat function
 }
 
