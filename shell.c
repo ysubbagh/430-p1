@@ -67,7 +67,7 @@ int interactiveShell() {
 
       processLine(section);
     }
-    */
+    
 
     int input_fd = STDIN_FILENO;
     int output_fd = STDOUT_FILENO;
@@ -135,7 +135,9 @@ int interactiveShell() {
         }
     }
 
-    processLine(line, input_fd, output_fd);
+    */
+
+    processLine(line);
 
     //handle history feature
     if(lastcall != NULL){
@@ -147,7 +149,7 @@ int interactiveShell() {
   return 0;
 }
 
-void processLine(char *line, int input_fd, int output_fd){
+void processLine(char *line){
   char *token;
   char *args[25]; //25 is max tokeans allowed, increase for more (if needed)
   int argsize = 0;
@@ -160,48 +162,49 @@ void processLine(char *line, int input_fd, int output_fd){
   }
   args[argsize] = NULL;
 
-
-
-  //handle file directing
-  //input
-  if(strstr(line, "<")){
-    if(input_fd != STDIN_FILENO){
-      dup2(input_fd, STDIN_FILENO);
-      close(input_fd);
-    }
-
-  }
-  //output
-  if(strstr(line, "<")){
-    if(output_fd != STDOUT_FILENO){
-      dup2(output_fd, STDOUT_FILENO);
-      close(output_fd);
-    }
-
-  }
-
-
+  //check for & and ;
+  bool runParent = checkForAmp(args, argsize);
 
 
   //fork process
   pid_t pid = fork();
 
-  if(pid < 0){
+  if(pid < 0){ //in wrong fork
     printf("Error: Could not fork.\n");
     exit(-1);
   }else if(pid > 0){ //parent branch
-    wait(NULL);
+    if(!runParent){ //only wait if there was no apmpersands
+      wait(NULL);
+    }
   }else{  //child branch
-    execute(args);
+    execute(args, argsize);
   }
 
 }
 
 //execution process
-void execute(char **args) { 
+void execute(char **args, int argsSize) { 
   execvp(args[0], args);
 
 
+}
+
+bool checkForAmp(char **args, int argSize){
+  int i = 0;
+  while(true){
+    if(args[i] == NULL){
+      break;
+    }else if(equal(args[i], "&") == 0){
+      return true; 
+    }
+    continue;
+  }
+  return false; //base case (either semicolon found, or no semicolor and no ampersands)
+}
+
+bool checkForIO(char **args, int argSize){
+
+  return false; //base case (no I/O redirect found)
 }
 
 void pipedCall(char **parsed, char **parseargs){
@@ -240,7 +243,7 @@ void repeatcall(){
   }
   int input_fd = STDIN_FILENO;
   int output_fd = STDOUT_FILENO;
-  processLine(lastcall, input_fd, output_fd); //cant handle file direct with the repeat function
+  processLine(lastcall); //cant handle file direct with the repeat function
 }
 
 int runTests() {

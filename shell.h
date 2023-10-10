@@ -26,12 +26,15 @@ bool equal(char *a, char *b);
 int fetchline(char **line);
 int interactiveShell();
 int runTests();
-void execute(char **args);
+void execute(char **args, int argsSize);
 int main();
 void printart();
 void repeatcall();
 void invalidcall();
-void processLine(char *line, int input_fd, int output_fd);
+void processLine(char *line);
 void pipedCall(char **parsed, char **parseargs);
+bool checkForAmp(char **args, int argSize);
+bool checkForIO(char **args, int argSize);
+
 
 #endif
