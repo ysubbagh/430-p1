@@ -177,7 +177,7 @@ void processLine(char *line){
     exit(-1);
   }else if(pid > 0){ //parent branch
 
-    printf("enter parent\n");
+    //printf("enter parent\n");
 
     if(!runParent){ //only wait if there was no apmpersands
       //printf("parent wait\n");
@@ -185,43 +185,26 @@ void processLine(char *line){
     }
   }else{  //child branch
 
-    printf("enter child\n");
+    //printf("enter child\n");
 
     //setup file stuff
     char *inFile, *outFile;
 
     //printf("og file; %s\n", outFile);
 
-    int input = STDIN_FILENO;
-    int output = STDOUT_FILENO;
-    int redirect = checkForIO(args, argsize, &inFile, &outFile);
-
-    printf("redirect val: %d\n", redirect);
+    int input_fd = STDIN_FILENO;
+    int output_fd = STDOUT_FILENO;
+    int redirect = checkForIO(args, argsize, inFile, outFile);
 
     if(redirect > -1){ //redirect found
-      doRedirection(redirect, inFile, outFile, &input, &output);
-      printf("directional\n");
+      doRedirection(redirect, inFile, outFile, input_fd, output_fd);
     }
-
-    printf("exec\n");
 
     //execute
     execute(args, argsize);
 
-    //clsoe file stuff
-    if(redirect > -1){
-      if(redirect == 0){
-        close(input);
-      }else if(redirect == 1){
-        close(output);
-      }else{
-        printf("Error: Cannot close file.\n");
-        exit(-1);
-      }
-      fflush(stdin);
-    }
-    free(input);
-    free(output);
+    fflush(stdin);
+
   }
 
 }
@@ -244,10 +227,7 @@ bool checkForAmp(char **args, int argSize){
 }
 
 int checkForIO(char **args, int argSize, char **inFile, char **outFile){
-  printf("og file: %s\n", outFile);
-
   for(int i = 0; i <= argSize; i++){
-
     if(args[i] == NULL){
       break;
     }else if(equal(args[i], "<")){ //input redirect found
@@ -255,27 +235,25 @@ int checkForIO(char **args, int argSize, char **inFile, char **outFile){
       return 0;
     }else if(equal(args[i], ">")){ //output redirect found
       *outFile = args[i+1];
-      printf("\nfile: %s\n", outFile);
+      //printf("\nfile: %s\n", *outFile);
       return 1;
     }
   }
   return -1; //base case (no I/O redirect found)
 }
 
-void doRedirection(int type, char *inFile, char *outFile, int *input, int *output){
+void doRedirection(int type, char **inFile, char **outFile, int *input, int *output){
   if(type == 0){ //input redirection
     *input = open(inFile, O_RDONLY);
     dup2(*input, STDIN_FILENO);
+    close(input);
   }else if(type == 1){ //output redirection
-
-    printf("output enter\n");
-
     *output = open(outFile, O_WRONLY | O_CREAT | O_TRUNC | 0666);
     if(*output == -1){
       printf("could not open file\n");
     }
-
     dup2(*output, STDOUT_FILENO);
+    close(output);
   }else{ //base case, something wrong
     printf("Error: Redirection issue.\n");
   }

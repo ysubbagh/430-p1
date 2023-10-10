@@ -1,3 +1,6 @@
-this is junk
-better work
-istg!
+u
+a.out
+junk.txt
+runit.sh
+shell.c
+shell.h
