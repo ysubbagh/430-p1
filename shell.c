@@ -22,138 +22,43 @@ int interactiveShell() {
     printf(PROMPT);
     fflush(stdout);
     int n = fetchline(&line);
-
-    //basic entries with only one command avail per line
-    if (n == -1 || equal(line, "exit")) {// ^D results in n == -1 or user enters the exit command
+    // ^D results in n == -1
+    if(n == -1){
       should_run = false;
-      printf("...exiting...\n");
-      continue;
-    }else if (equal(line, "!!")){ //user enters repeat command
-      repeatcall();
-      continue;
-    }else if(equal(line, "ascii")){ //user enters ascii art command
-      printart();
-      continue;
-    }else if(equal(line, "")){ //empty line
       continue;
     }
-    /*
-    //handle piping 
-    char *pipetoken;
-    char *commands[10]; //25 is max tokeans allowed, increase for more (if needed)
-    int numCommands = 0;
 
-    pipetoken = strtok(line, "|");
-    while(pipetoken != NULL){
-      commands[numCommands++] = pipetoken;
-      pipetoken = strtok(NULL, "|");
-    }
-
-    //start executing commands
-    for(int i = 0; i < numCommands; i++){
-      char* section = commands[i];
-      printf("subsection: %s\n", section);
-
-      int pipefd[2];
-      if(i < numCommands - 1){ //create pipes for sections but last
-        if(pipe(pipefd) == -1){
-          printf("Error: Could not pipe.\n");
-        }
-
-      }
-
-
-
-
-      processLine(section);
-    }
+    //actual stuff
+    should_run = processLine(line);
     
-
-    int input_fd = STDIN_FILENO;
-    int output_fd = STDOUT_FILENO;
-
-    // Check for input redirection (<)
-    char *inputFile = NULL;
-
-    if (strstr(line, "<")) {
-        char *tokens[25];
-        int numTokens = 0;
-        char *token = strtok(line, " ");
-        while (token != NULL) {
-            tokens[numTokens++] = token;
-            token = strtok(NULL, " ");
-        }
-
-        for (int j = 0; j < numTokens; j++) {
-            if (strcmp(tokens[j], "<") == 0) {
-                if (j + 1 < numTokens) {
-                    inputFile = tokens[j + 1];
-                    tokens[j] = NULL;
-                    break;
-                }
-            }
-        }
-
-        // Open the input file and set it as the input
-        if (inputFile != NULL) {
-            input_fd = open(inputFile, O_RDONLY);
-            if (input_fd < 0) {
-                //perror("open");
-                //exit(EXIT_FAILURE);
-            }
-        }
-    }
-
-    // Check for output redirection (>)
-    char *outputFile = NULL;
-    if (strstr(line, ">")) {
-        char *tokens[25];
-        int numTokens = 0;
-        char *token = strtok(line, " ");
-        while (token != NULL) {
-            tokens[numTokens++] = token;
-            token = strtok(NULL, " ");
-        }
-
-        for (int j = 0; j < numTokens; j++) {
-            if (strcmp(tokens[j], ">") == 0) {
-                if (j + 1 < numTokens) {
-                    outputFile = tokens[j + 1];
-                    tokens[j] = NULL;
-                    break;
-                }
-            }
-        }
-
-        // Open the output file and set it as the output
-        if (outputFile != NULL) {
-            output_fd = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-            if (output_fd < 0) {
-                //perror("open");
-                //exit(EXIT_FAILURE);
-            }
-        }
-    }
-
-    */
-
-    processLine(line);
-
-    /*
     //handle history feature
     if(lastcall != NULL){
       free(lastcall);
     }
     lastcall = line;
-    */
 
-    //printf("loop\n");
   }
+  //free memory
   free(line);
   return 0;
 }
 
-void processLine(char *line){
+bool processLine(char *line){
+//basic entries with only one command avail per line
+  if (equal(line, "exit")) {//user enters the exit command
+    printf("...exiting...\n");
+    return false;
+  }else if (equal(line, "!!")){ //user enters repeat command
+    repeatcall();
+    return true;
+  }else if(equal(line, "ascii")){ //user enters ascii art command
+    printart();
+    return true;
+  }else if(equal(line, "")){ //empty line
+    return true;
+  }
+
+  //tokenize
   char *token;
   char *args[25]; //25 is max tokeans allowed, increase for more (if needed)
   int argsize = 0;
@@ -174,28 +79,18 @@ void processLine(char *line){
 
   if(pid < 0){ //in wrong fork
     printf("Error: Could not fork.\n");
-    exit(-1);
+    return false;
   }else if(pid > 0){ //parent branch
-
-    //printf("enter parent\n");
-
     if(!runParent){ //only wait if there was no apmpersands
-      //printf("parent wait\n");
       wait(NULL);
     }
   }else{  //child branch
 
-    //printf("enter child\n");
-
     //setup file stuff
     char *inFile, *outFile;
-
-    //printf("og file; %s\n", outFile);
-
     int input_fd = STDIN_FILENO;
     int output_fd = STDOUT_FILENO;
     int redirect = checkForIO(args, argsize, inFile, outFile);
-
     if(redirect > -1){ //redirect found
       doRedirection(redirect, inFile, outFile, input_fd, output_fd);
     }
@@ -204,15 +99,13 @@ void processLine(char *line){
     execute(args, argsize);
 
     fflush(stdin);
-
   }
-
+  return true;
 }
 
 //execution process
 void execute(char **args, int argsSize) { 
   execvp(args[0], args);
-
 }
 
 bool checkForAmp(char **args, int argSize){
@@ -220,10 +113,23 @@ bool checkForAmp(char **args, int argSize){
     if(args[i] == NULL){
       break;
     }else if(equal(args[i], "&")){
+      args[i] = NULL;
+      argSize--;
       return true; 
     }
   }
   return false; //base case (either semicolon found, or no semicolon and no ampersands)
+}
+
+int checkForPipe(char **args, int argSize){
+  for(int i = 0; i <= argSize; i++){
+    if(args[i] == NULL){
+      break;
+    }else if(equal(args[i], "|")){
+      return i; //return the position of the pipe
+    }
+  }
+  return -1; //base case
 }
 
 int checkForIO(char **args, int argSize, char **inFile, char **outFile){
@@ -232,10 +138,15 @@ int checkForIO(char **args, int argSize, char **inFile, char **outFile){
       break;
     }else if(equal(args[i], "<")){ //input redirect found
       *inFile = args[i + 1];
+      args[i] = NULL;
+      args[i+1] = NULL; 
+      argSize -= 2;
       return 0;
     }else if(equal(args[i], ">")){ //output redirect found
       *outFile = args[i+1];
-      //printf("\nfile: %s\n", *outFile);
+      args[i] = NULL;
+      args[i+1] = NULL; 
+      argSize -= 2;
       return 1;
     }
   }
@@ -244,18 +155,16 @@ int checkForIO(char **args, int argSize, char **inFile, char **outFile){
 
 void doRedirection(int type, char **inFile, char **outFile, int *input, int *output){
   if(type == 0){ //input redirection
-    *input = open(inFile, O_RDONLY);
-    dup2(*input, STDIN_FILENO);
+    input = open(*inFile, O_RDONLY | 0666);
+    dup2(input, STDIN_FILENO);
     close(input);
   }else if(type == 1){ //output redirection
-    *output = open(outFile, O_WRONLY | O_CREAT | O_TRUNC | 0666);
-    if(*output == -1){
-      printf("could not open file\n");
-    }
-    dup2(*output, STDOUT_FILENO);
-    close(output);
+    int newO = open(*outFile, O_WRONLY | O_CREAT | O_TRUNC| 0666);
+    dup2(newO, STDOUT_FILENO);
+    close(newO);
   }else{ //base case, something wrong
     printf("Error: Redirection issue.\n");
+    exit(-1);
   }
 }
 
@@ -292,9 +201,7 @@ void repeatcall(){
     printf("Error: No commands in history.\n");
     return;
   }
-  //int input_fd = STDIN_FILENO;
-  //int output_fd = STDOUT_FILENO;
-  processLine(lastcall); //cant handle file direct with the repeat function
+  processLine(lastcall); 
 }
 
 int runTests() {

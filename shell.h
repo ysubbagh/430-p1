@@ -31,9 +31,10 @@ int main();
 void printart();
 void repeatcall();
 void invalidcall();
-void processLine(char *line);
+bool processLine(char *line);
 void pipedCall(char **parsed, char **parseargs);
 bool checkForAmp(char **args, int argSize);
+int checkForPipe(char **args, int argSize);
 int checkForIO(char **args, int argSize, char **inFile, char **outFile);
 void doRedirection(int type, char **inFile, char **outFile, int *input, int *output);
 
