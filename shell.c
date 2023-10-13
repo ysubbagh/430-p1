@@ -74,6 +74,11 @@ bool processLine(char *line){
   //check for & and ;
   bool runParent = checkForAmp(args, argsize);
 
+  //check for pipe
+  int pipeLoc = checkForPipe(args, argsize);
+  //divide 
+    
+
   //fork process
   pid_t pid = fork();
 
